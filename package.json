@@ -1,0 +1,35 @@
+{
+  "name": "memgraph-task",
+  "version": "1.0.0",
+  "description": "Bookmark REST API server that uses memgraph graph database",
+  "main": "server.js",
+  "scripts": {
+    "test": "jest",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lolchek/memgraph-task.git"
+  },
+  "keywords": [
+    "graph",
+    "database",
+    "memgraph",
+    "intro",
+    "bookmark"
+  ],
+  "author": "Lolchek",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Lolchek/memgraph-task/issues"
+  },
+  "homepage": "https://github.com/Lolchek/memgraph-task#readme",
+  "devDependencies": {
+    "jest": "^26.4.2"
+  },
+  "dependencies": {
+    "express": "^4.17.1",
+    "express-generator": "^4.16.1",
+    "neo4j-driver": "^1.7.6"
+  }
+}
