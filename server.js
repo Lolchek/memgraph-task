@@ -83,10 +83,12 @@ router.get('/bookmarks/:id', (request, response) => {
     .run('MATCH (u:Bookmark {id: $id}) RETURN u;', {"id": Number(request.params.id)})
     .then(result => {
       session.close()
+      res = {};
       for (r of result.records){
-        response.send(bookmark.from_graph_result(r));
+        res = bookmark.from_graph_result(r);
       }
-
+      
+      response.send(res)
       return result;
     })
 })
