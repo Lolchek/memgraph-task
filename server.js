@@ -34,7 +34,7 @@ router.post('/bookmarks',(request,response) => {
     console.log(b);
 
     tx.run(
-      'CREATE (u:Bookmark {url: $url, tags: $tags, author: $author, date_created: $date_created});',
+      'CREATE (u:Bookmark {id: $id, url: $url, tags: $tags, author: $author, date_created: $date_created});',
       b
     )
 
@@ -77,6 +77,20 @@ router.get('/bookmarks', (request, response) => {
   // });
 })
 
+router.get('/bookmarks/:id', (request, response) => {
+  const session = driver.session()
+  return session
+    .run('MATCH (u:Bookmark {id: $id}) RETURN u;', {"id": Number(request.params.id)})
+    .then(result => {
+      session.close()
+      for (r of result.records){
+        response.send(bookmark.from_graph_result(r));
+      }
+
+      return result;
+    })
+})
+
 router.delete('/bookmarks', (request, response) => {
     const session = driver.session()
     session.run("MATCH (n) DETACH DELETE n").then(
@@ -84,7 +98,8 @@ router.delete('/bookmarks', (request, response) => {
         session.close();
       }
     );
-    console.log("Database cleared.");
+    response.send("Database cleared.");
+    return response;
 })
 
 app.use("/", router);
