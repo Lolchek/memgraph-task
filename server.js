@@ -4,6 +4,8 @@ const router = express.Router();
 var app = express();
 const neo4j = require("neo4j-driver").v1;
 
+const handleCreate = require("./requestHandlers/handleCreate.js")
+
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
@@ -13,40 +15,11 @@ const driver = neo4j.driver(uri, neo4j.auth.basic("", ""));
 router.post('/bookmarks',(request,response) => {
   //code to perform particular action.
   //To access POST variable use req.body()methods.
-  response.send(request.body);
-
-  const session = driver.session()
-
-    
   url = request.body.url;
   tags = request.body.tags;
   author = request.body.author || "";
-  session.run(
-    'MERGE (b:Bookmark {url: $url, date_created: $date_created});',
-    {"url": url, "date_created": new Date().toISOString()}
-  ).then()
-  for (tag of tags) {
-    session.run(
-      'MERGE (t:Tag {tag: $tag}) ON CREATE SET t.date_created = $date_created;',
-      {"tag": tag, "date_created": new Date().toISOString()}
-    ).then()
-    session.run(
-      'MATCH (b: Bookmark {url: $url}), (t:Tag {tag: $tag}) MERGE (b)-[:Tagged{score:1}]-(t);',
-      {"url": url, "tag": tag}
-    ).then()
-  }
-
-  session.run(
-    'MERGE (a:Author {name: $name});',
-    {"name": author}
-  ).then()
-
-  session.run(
-    'MATCH (b: Bookmark {url: $url}), (a:Author {name: $name}) MERGE (b)-[:Authored]-(a);',
-    {"url": url, "name": author}
-  ).then(result => {
-    session.close();
-  });
+  handleCreate.createBookmarks(driver, url, tags, author).then(record => response.send(record));
+  // process.stdout.write(JSON.stringify(res) + '\n');
 });
 
 
