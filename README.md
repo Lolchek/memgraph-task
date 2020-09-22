@@ -2,12 +2,12 @@
 
 ## API endpoints
 
-[Saving a bookmark](#headers)  
-[Getting saved bookmark by id](#emphasis) 
-[Getting a list of bookmarks newest first](#emphasis) 
-[Getting a list of bookmarks by author name](#emphasis) 
-[Getting a list of bookmarks filtered by tags](#emphasis) 
-[Getting a list of tags by date created and frequency](#emphasis) 
+[Saving a bookmark](#saving-a-bookmark)  
+[Getting saved bookmark by id](#getting-saved-bookmark-by-id) 
+[Getting a list of bookmarks newest first](#getting-a-list-of-bookmarks-newest-first) 
+[Getting a list of bookmarks by author name](getting-a-list-of-bookmarks-by-author-name) 
+[Getting a list of bookmarks filtered by tags](#getting-a-list-of-bookmarks-filtered-by-tags) 
+[Getting a list of tags by date created and frequency](#getting-a-list-of-tags-by-date-created-and-frequency) 
 
 ### Saving a bookmark
 Input:
