@@ -1,9 +1,6 @@
-var next_id = 0;
 
 function create(url, tags, author, date_created = new Date().toISOString()){ 
-    next_id += 1;
     return {
-        "id": next_id,
         "url": url,
         "tags": tags,
         "author": author,

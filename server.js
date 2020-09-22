@@ -3,14 +3,9 @@ const bodyParser = require("body-parser");
 const router = express.Router();
 var app = express();
 const neo4j = require("neo4j-driver").v1;
-const bookmark = require("./bookmark");
 
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
-
-// app.get("/url", (req, res, next) => {
-//   res.json(["Tony","Lisa","Michael","Ginger","Food"]);
-//  });
 
 const uri = "bolt://localhost:7687";
 const driver = neo4j.driver(uri, neo4j.auth.basic("", ""));
@@ -20,54 +15,104 @@ router.post('/bookmarks',(request,response) => {
   //To access POST variable use req.body()methods.
   response.send(request.body);
 
-  // const driver = neo4j.driver(uri, neo4j.auth.basic(user, password))
   const session = driver.session()
 
-  const resultPromise = session.writeTransaction(tx => {
     
-    var b = bookmark.create(
-      request.body.url,
-      request.body.tags,
-      request.body.author
-    );
-    
-    console.log(b);
+  url = request.body.url;
+  tags = request.body.tags;
+  author = request.body.author || "";
+  session.run(
+    'MERGE (b:Bookmark {url: $url, date_created: $date_created});',
+    {"url": url, "date_created": new Date().toISOString()}
+  ).then()
+  for (tag of tags) {
+    session.run(
+      'MERGE (t:Tag {tag: $tag}) ON CREATE SET t.date_created = $date_created;',
+      {"tag": tag, "date_created": new Date().toISOString()}
+    ).then()
+    session.run(
+      'MATCH (b: Bookmark {url: $url}), (t:Tag {tag: $tag}) MERGE (b)-[:Tagged{score:1}]-(t);',
+      {"url": url, "tag": tag}
+    ).then()
+  }
 
-    tx.run(
-      'CREATE (u:Bookmark {id: $id, url: $url, tags: $tags, author: $author, date_created: $date_created});',
-      b
-    )
+  session.run(
+    'MERGE (a:Author {name: $name});',
+    {"name": author}
+  ).then()
 
-  })
-
-  resultPromise.then(result => {
-    session.close()
-    // on application exit:
-    driver.close()
-})
-
+  session.run(
+    'MATCH (b: Bookmark {url: $url}), (a:Author {name: $name}) MERGE (b)-[:Authored]-(a);',
+    {"url": url, "name": author}
+  ).then(result => {
+    session.close();
+  });
 });
+
 
 router.get('/bookmarks', (request, response) => {
   const session = driver.session()
+
+  var tags = request.query.tags;
+
+  if (tags) {
+    var ts = tags.split(",");
+    return session
+      .run(
+        "MATCH (t :Tag )-[tg :Tagged]-(b :Bookmark) WHERE t.tag IN $tags return id(b) as bid, COUNT(t.tag) as c ORDER BY c DESC;",
+        {"tags": ts})
+      .then(result => {
+        ids = []
+        ids_to_occurences = {};
+        for (r of result.records) {
+          ids.push(r._fields[0].low);
+          ids_to_occurences[r._fields[0].low] = r._fields[1];
+        }
+        session.run(
+          "MATCH (t:Tag)--(b :Bookmark)--(a: Author) WHERE id(b) IN $ids return id(b), a.name, b.url, COLLECT(t.tag);",
+          {"ids": ids}
+        ).then(result => {
+          var bms = {};
+          for (r of result.records) {
+            bms[r._fields[0].low] = {
+              "url": r._fields[1],
+              "tags": r._fields[2],
+              "author": r._fields[3]
+            }
+          }
+          
+          var resp = [];
+          for (id_ of ids){
+            resp.push(Object.assign({"id": id_},bms[id_]));
+          }
+          response.send(resp);
+          return result
+        });
+      })
+
+  }
+
+
+  var author = request.query.author;
+
   return session
-    .run('MATCH (u:Bookmark) RETURN u;')
+    .run(
+      `MATCH (t :Tag )-[tg :Tagged]-(b :Bookmark)-[ad: Authored]-(a: Author ${author ? "{name: $author}" : ""}) RETURN id(b), b.url as url, COLLECT(t.tag) as tags, a.name as author, b.date_created as dc ORDER BY dc DESC;`,
+      {"author": author})
     .then(result => {
       session.close()
-      var bms = [];
-      for (r of result.records){
-        bms.push(bookmark.from_graph_result(r));
+
+      records = result.records;
+      bms = []
+      for (r of records) {
+        bms.push({
+          "id": r._fields[0].low,
+          "url": r._fields[1],
+          "tags": r._fields[2],
+          "author": r._fields[3]
+        })
       }
 
-      bms.sort(function (a, b){
-        if (a.date_created > b.date_created) {
-          return -1;
-        }
-        if (b.date_created > a.date_created) {
-          return 1;
-        }
-        return 0;
-      })
       response.send(bms);
       // response.send(result);
       return result;
@@ -80,17 +125,70 @@ router.get('/bookmarks', (request, response) => {
 router.get('/bookmarks/:id', (request, response) => {
   const session = driver.session()
   return session
-    .run('MATCH (u:Bookmark {id: $id}) RETURN u;', {"id": Number(request.params.id)})
+    .run(
+      'MATCH (t :Tag )-[tg :Tagged]-(b :Bookmark)-[ad: Authored]-(a: Author ) WHERE id(b)=$id RETURN id(b), b.url as url, COLLECT(t.tag) as tags, a.name as author;', 
+      {"id": Number(request.params.id)})
     .then(result => {
       session.close()
       res = {};
       for (r of result.records){
-        res = bookmark.from_graph_result(r);
+        res = {
+          "id": r._fields[0].low,
+          "url": r._fields[1],
+          "tags": r._fields[2],
+          "author": r._fields[3]
+        }
       }
       
       response.send(res)
       return result;
     })
+})
+
+function stringToBoolean (string){
+  switch(string.toLowerCase().trim()){
+      case "true": case "yes": case "1": return true;
+      case "false": case "no": case "0": case null: return false;
+      default: return Boolean(string);
+  }
+}
+
+router.get("/tags", (request, response) => {
+  const session = driver.session()
+
+  byFreq = request.query.sortByFrequency;
+
+  if (byFreq && stringToBoolean(byFreq)){
+    return session
+      .run(
+        "MATCH (b2:Bookmark) WITH COUNT(b2) AS total MATCH (t:Tag)--(b :Bookmark) return t.tag, COUNT(b)*1.0/total as freq ORDER BY freq DESC;"
+      ).then(result => {
+        var tags = [];
+        for (r of result.records){
+          tags.push({
+            "tag": r._fields[0],
+            "frequency": r._fields[1]
+          });
+        }
+        response.send(tags);
+        return result;
+      })
+  } else {
+    return session
+    .run(
+      "MATCH (b2:Bookmark) WITH COUNT(b2) AS total MATCH (t:Tag)--(b :Bookmark) return t.tag, COUNT(b)*1.0/total as freq, t.date_created AS dc ORDER BY dc DESC;"
+    ).then(result => {
+      var tags = [];
+      for (r of result.records){
+        tags.push({
+          "tag": r._fields[0],
+          "frequency": r._fields[1]
+        });
+      }
+      response.send(tags);
+      return result;
+    })
+  }
 })
 
 router.delete('/bookmarks', (request, response) => {
@@ -107,5 +205,12 @@ router.delete('/bookmarks', (request, response) => {
 app.use("/", router);
 
 app.listen(3000, () => {
- console.log("Server running on port 3000");
+  const session = driver.session()
+  // session.run("MATCH (n) DETACH DELETE n").then();
+  session.run("CREATE CONSTRAINT ON (b:Bookmark) ASSERT b.url IS UNIQUE").then();
+  session.run("CREATE CONSTRAINT ON (t:Tag) ASSERT t.name IS UNIQUE").then();
+  session.run("CREATE CONSTRAINT ON (a:Author) ASSERT a.name IS UNIQUE").then(result => {
+    session.close();
+  });
+  console.log("Server running on port 3000");
 });
