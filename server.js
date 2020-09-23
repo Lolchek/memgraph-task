@@ -9,7 +9,7 @@ const handleCreate = require("./requestHandlers/handleCreate.js")
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
-const uri = "bolt://localhost:7687";
+const uri = "bolt://0.0.0.0:7687";
 const driver = neo4j.driver(uri, neo4j.auth.basic("", ""));
 
 router.post('/bookmarks',(request,response) => {

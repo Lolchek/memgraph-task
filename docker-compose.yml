@@ -1,0 +1,20 @@
+version: "3.3"
+services:
+  web:
+    build: .
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+    command: > 
+      sh -c "npm start"
+    links:
+      - "db:127.0.0.1"
+  db:
+    ports:
+      - "7687:7687"
+    image: memgraph
+    volumes:
+       - ./mg_log:/var/log/memgraph
+       - ./mg_etc:/etc/memgraph
+       - ./mg_lib:/var/lib/memgraph
