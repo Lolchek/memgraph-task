@@ -6,10 +6,6 @@ services:
       - "3000:3000"
     depends_on:
       - db
-    command: > 
-      sh -c "npm start"
-    links:
-      - "db:127.0.0.1"
   db:
     ports:
       - "7687:7687"
