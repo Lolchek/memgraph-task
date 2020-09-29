@@ -10,7 +10,7 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
 const uri = "bolt://db:7687";
-const driver = neo4j.driver(uri, neo4j.auth.basic("", ""));
+const driver = neo4j.driver(uri, neo4j.auth.basic("", ""), { encrypted: false });
 
 router.post('/bookmarks',(request,response) => {
   //code to perform particular action.
